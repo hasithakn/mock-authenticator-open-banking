@@ -14,14 +14,130 @@
   <version>1.0-SNAPSHOT</version>
   <name>com.wso2.openbanking.authentication.benefitpay.consent.webapp</name>
   <url>http://maven.apache.org</url>
+  <packaging>war</packaging>
+
+  <properties>
+    <maven.compiler.source>11</maven.compiler.source>
+    <maven.compiler.target>11</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven-war-plugin.version>3.3.2</maven-war-plugin.version>
+    <encoder.wso2.version>1.2.0.wso2v1</encoder.wso2.version>
+    <openbanking.accelerator.version>3.0.0.310-SNAPSHOT</openbanking.accelerator.version>
+    <spring-web.version>5.1.2.RELEASE</spring-web.version>
+    <maven.compiler.plugin.version>2.3.2</maven.compiler.plugin.version>
+    <maven.surefire.plugin.version>2.22.2</maven.surefire.plugin.version>
+    <jstl.version>1.2</jstl.version>
+    <org.testng.version>7.3.0</org.testng.version>
+    <mockito.version>1.10.19</mockito.version>
+    <spring-web-test.version>2.5</spring-web-test.version>
+  </properties>
+
+  <repositories>
+    <repository>
+      <id>wso2-nexus-2</id>
+      <name>WSO2 internal Repository</name>
+      <url>https://support-maven.wso2.org/nexus/content/repositories/updates-2.0/</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+        <checksumPolicy>ignore</checksumPolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>wso2-nexus</id>
+      <name>WSO2 internal Repository</name>
+      <url>https://maven.wso2.org/nexus/content/groups/wso2-public/</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+        <checksumPolicy>ignore</checksumPolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>wso2.releases</id>
+      <name>WSO2 internal Repository</name>
+      <url>https://maven.wso2.org/nexus/content/repositories/releases/</url>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>daily</updatePolicy>
+        <checksumPolicy>ignore</checksumPolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>wso2.snapshots</id>
+      <name>Apache Snapshot Repository</name>
+      <url>https://maven.wso2.org/nexus/content/repositories/snapshots/</url>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+    </repository>
+  </repositories>
 
   <dependencies>
     <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <version>3.8.1</version>
+      <groupId>com.wso2</groupId>
+      <artifactId>com.wso2.openbanking.accelerator.identity</artifactId>
+      <version>${openbanking.accelerator.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.wso2</groupId>
+      <artifactId>com.wso2.openbanking.accelerator.consent.extensions</artifactId>
+      <version>${openbanking.accelerator.version}</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>javax.servlet</groupId>
+      <artifactId>jstl</artifactId>
+      <version>${jstl.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-test</artifactId>
+      <version>${spring-web-test.version}</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>${spring-web.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>${maven-war-plugin.version}</version>
+        <configuration>
+          <webResources>
+            <resource>
+              <!-- this is relative to the pom.xml directory -->
+              <directory>src/main/resources/</directory>
+            </resource>
+          </webResources>
+          <warName>benefitpay#authenticationendpoint</warName>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven.compiler.plugin.version}</version>
+      </plugin>
+    </plugins>
+  </build>
 
 </project>

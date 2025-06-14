@@ -2,38 +2,23 @@ package com.wso2.openbanking.authentication.benefitpay.authenticator;
 
 import com.wso2.openbanking.accelerator.consent.mgt.service.impl.ConsentCoreServiceImpl;
 import net.minidev.json.JSONObject;
-import net.minidev.json.parser.JSONParser;
-import net.minidev.json.parser.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.http.HttpEntity;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPatch;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.wso2.carbon.identity.application.authentication.framework.AbstractApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.FederatedApplicationAuthenticator;
 import org.wso2.carbon.identity.application.authentication.framework.context.AuthenticationContext;
 import org.wso2.carbon.identity.application.authentication.framework.exception.AuthenticationFailedException;
 import org.wso2.carbon.identity.application.authentication.framework.inbound.InboundConstants;
 import org.wso2.carbon.identity.application.authentication.framework.model.AuthenticatedUser;
+import org.wso2.carbon.identity.application.authentication.framework.util.FrameworkConstants;
 import org.wso2.carbon.identity.application.common.model.Property;
-import org.wso2.carbon.identity.oauth.cache.SessionDataCache;
-import org.wso2.carbon.identity.oauth.cache.SessionDataCacheEntry;
-import org.wso2.carbon.identity.oauth.cache.SessionDataCacheKey;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.io.Serializable;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,47 +33,34 @@ public class BenefitPayAuthenticator extends AbstractApplicationAuthenticator im
 
         // Get the required configuration properties.
         List<Property> configProperties = new ArrayList<>();
-        Property clientId = new Property();
-        clientId.setName("test_config");
-        clientId.setDisplayName("Test config");
-        clientId.setRequired(true);
-        clientId.setDescription("Test config");
-        clientId.setType("string");
-        clientId.setDisplayOrder(1);
-        configProperties.add(clientId);
-
+        Property jwksEndpoint = new Property();
+        jwksEndpoint.setName("JWKS_Endpoint");
+        jwksEndpoint.setDisplayName("JWKS_Endpoint");
+        jwksEndpoint.setRequired(true);
+        jwksEndpoint.setDescription("JWKS_Endpoint to validate the signature of incoming requests from GW");
+        jwksEndpoint.setType("string");
+        jwksEndpoint.setDisplayOrder(1);
+        configProperties.add(jwksEndpoint);
         return configProperties;
     }
 
     @Override
     protected void initiateAuthenticationRequest(HttpServletRequest request, HttpServletResponse response,
                                                  AuthenticationContext context) throws AuthenticationFailedException {
-        String sessionDataKey = context.getCallerSessionKey();
 
-        // todo : do validations
+        String userIdentifier = request.getParameter("userIdentifier");
+        String mobileNumber = request.getParameter("mobileNumber");
 
-//        String userIdentifier = request.getParameter("userIdentifier");
-//        String mobileNumber = request.getParameter("mobileNumber");
-//        log.info("userIdentifier: " + userIdentifier);
-//        log.info("mobileNumber: " + mobileNumber);
 
-        // validate client has specific scopes
+        // todo : custom validation logics ..
 
-//        List<String> requestObjectList = Arrays.stream(context.getQueryParams().split("&"))
-//                .filter(e -> e.startsWith("request")).collect(Collectors.toList());
-//        String requestObject = requestObjectList.get(0).split("=")[1];
-//        log.info("sessionDataKey: " + sessionDataKey);
-//        log.info("requestObject: " + requestObject);
-
+        JSONObject resp = new JSONObject();
+        resp.appendField("sessionId", context.getContextIdentifier());
+        resp.appendField("scope", request.getParameter("scope"));
         response.setStatus(HttpServletResponse.SC_OK);
         response.setContentType(MEDIA_TYPE_JSON);
 
-        JSONObject resp = new JSONObject();
-        resp.appendField("sessionId", sessionDataKey);
-        resp.appendField("contextId", context.getContextIdentifier());
-        resp.appendField("scope", request.getParameter("scope"));
-
-        PrintWriter out = null;
+        PrintWriter out;
         try {
             out = response.getWriter();
             out.print(resp.toJSONString());
@@ -105,124 +77,48 @@ public class BenefitPayAuthenticator extends AbstractApplicationAuthenticator im
                                                  AuthenticationContext authenticationContext)
             throws AuthenticationFailedException {
 
-        log.info("processResp");
-        String callerSessionKey = authenticationContext.getCallerSessionKey();
-        SessionDataCacheEntry valueFromCache = SessionDataCache.getInstance().getValueFromCache(new SessionDataCacheKey(callerSessionKey));
-        log.info("callerSessionKey: " + callerSessionKey);
-        AuthenticatedUser authenticatedUser =
-                AuthenticatedUser.createLocalAuthenticatedUserFromSubjectIdentifier("admin@wso2.com");
+
+        String sessionId = httpServletRequest.getParameter("sessionDataKey");
+        // JWT token from KONG GW
+        String token = httpServletRequest.getParameter("token");
+
+        // get the configured authenticator JWKS endpoint.
+        Map<String, String> authenticatorProperties = authenticationContext.getAuthenticatorProperties();
+        String jwksEndpoint = authenticatorProperties.get("JWKS_Endpoint");
+
+        // todo : verify the signature of the token with configured JWKS endpoint or certificate.
+        // todo : if signature verification fails, invalid authentication -> breaks the flow.
+
+        // decode token and extract below params.
+        String sessionIdFromToken = "decodedToken.sessionId";        //decodedToken -> get ("userIdentifier");
+        // todo : validate sessionIdFromToken with sessionId from request,
+        //  this is to make sure this token can only be used for this session.
+
+        String userIdentifier = "decodedToken.user";        //decodedToken -> get ("userIdentifier");
+        String mobileNumber = "decodedToken.mobileNumber";  //decodedToken -> get ("mobileNumber");
+        String action = "decodedToken.action";              //decodedToken -> get ("action")
+        String accounts = "decodedToken.accounts";          //decodedToken -> get ("accounts")
+
+        // set these properties in the authentication context.
+
+        Map<String, String> datasetToConstPage = new HashMap<>();
+        datasetToConstPage.put("mobileNumber",mobileNumber);
+        datasetToConstPage.put("userIdentifier", userIdentifier);
+        datasetToConstPage.put("action", action);
+        datasetToConstPage.put("accounts", accounts);
+        authenticationContext.setProperty(FrameworkConstants.AUTHENTICATION_CONTEXT_PROPERTIES, datasetToConstPage);
+
+        // set the user identifier in the context.
+        AuthenticatedUser authenticatedUser = AuthenticatedUser
+                .createFederateAuthenticatedUserFromSubjectIdentifier(userIdentifier);
         authenticationContext.setSubject(authenticatedUser);
-        authenticatedUser.setFederatedIdPName("bhob-authenticator");
-
-        valueFromCache.setLoggedInUser(authenticationContext.getLastAuthenticatedUser());
-
-        Map<String, Serializable> endpointParams = valueFromCache.getEndpointParams();
-        endpointParams.put("isError", false);
-        endpointParams.put("loggedInUser", "admin@wso2.com@carbon.super");
-        endpointParams.put("application", authenticationContext.getServiceProviderName());
-        endpointParams.put("spQueryParams", authenticationContext.getQueryParams());
-        endpointParams.put("scope", "openid accounts");
-        endpointParams.put("tenantDomain", "carbon.super");
-
-        invokeRetrieval(callerSessionKey);
-        String persistPayload = "{\"approval\":\"true\",\"authorize\":false, \"accountIds\": [\"67890\"]}";
-        try {
-            invokePersist(callerSessionKey, persistPayload);
-        } catch (UnsupportedEncodingException e) {
-            throw new RuntimeException(e);
-        }
-
-    }
-
-    public static void invokeRetrieval(String callerSessionKey) throws RuntimeException {
-        String baseURL = "https://localhost:9446/api/openbanking/consent/authorize/retrieve";
-
-        try {
-            URL url = new URL(baseURL + "/" + URLEncoder.encode(callerSessionKey, "UTF-8"));
-            HttpURLConnection httpURLConnection = (HttpURLConnection) url.openConnection();
-            httpURLConnection.setInstanceFollowRedirects(false);
-            httpURLConnection.setDoInput(true);
-            httpURLConnection.setDoOutput(true);
-            httpURLConnection.setRequestMethod("GET");
-            httpURLConnection.setRequestProperty("Content-Type", "application/json");
-            httpURLConnection.setRequestProperty("Authorization", "Basic YWRtaW5Ad3NvMi5jb206d3NvMjEyMw==");
-
-            if (httpURLConnection.getResponseCode() == 200) {
-                if (log.isDebugEnabled()) {
-                    log.debug("Consent retrieved successfully.");
-                }
-            } else {
-                log.error("Error while retrieving consent." + "Status code:" + httpURLConnection.getResponseCode()
-                        + "Status message:" + httpURLConnection.getResponseMessage());
-            }
-        } catch (IOException e) {
-            log.error(e);
-        }
-    }
-
-
-    private static void invokePersist(String callerSessionKey, String consentData)
-            throws RuntimeException, UnsupportedEncodingException {
-
-        String baseURL = "https://localhost:9446/api/openbanking/consent/authorize/persist/" +
-                URLEncoder.encode(callerSessionKey, "UTF-8") + "?authorize=false";
-        log.info("Persist base url " + baseURL);
-        JSONParser parser = new JSONParser();
-        JSONObject persistPayload = null;
-        try {
-            persistPayload = (JSONObject) parser.parse(consentData);
-        } catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
-        String approval = "true";
-        persistPayload.put("approval", approval);
-        String payload = persistPayload.toJSONString();
-        log.debug("Persist Payload " + payload);
-
-        try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-            // Create the PATCH request
-            log.debug("Inside try");
-            HttpPatch httpPatch = new HttpPatch(baseURL);
-
-            // Set the headers (Content-Type and Authorization, if necessary)
-            httpPatch.setHeader("Content-Type", "application/json");
-            httpPatch.setHeader("Authorization", "Basic YWRtaW5Ad3NvMi5jb206d3NvMjEyMw==");
-
-            // Set the request body (JSON data)
-            StringEntity entity = new StringEntity(payload);
-            httpPatch.setEntity(entity);
-
-            // Execute the PATCH request
-            try (CloseableHttpResponse response = httpClient.execute(httpPatch)) {
-                // print each header in response
-                for (org.apache.http.Header header : response.getAllHeaders()) {
-                    log.debug("Response Header: " + header.getName() + " = " + header.getValue());
-                }
-                log.debug("Inside try 2");
-                // Check the response code
-                int statusCode = response.getStatusLine().getStatusCode();
-                HttpEntity responseEntity = response.getEntity();
-                String responseString = EntityUtils.toString(responseEntity);
-                if (statusCode == 200) {
-
-                    log.info("Consent persisted successfully. Status Code " + statusCode);
-                } else {
-                    log.info("Response Code: " + statusCode);
-                    log.info("Response Body: " + responseString);
-                    throw new RuntimeException("Error while persisting consent.");
-                }
-            }
-        } catch (IOException e) {
-            log.error(" Exception " + e);
-            throw new RuntimeException("Error while persisting consent.");
-        }
+        authenticatedUser.setFederatedIdPName(this.getName());
 
     }
 
     @Override
     public boolean canHandle(HttpServletRequest httpServletRequest) {
-        // todo add token validation.
-        return httpServletRequest.getParameter("proceedAuthorization") != null;
+        return httpServletRequest.getParameter("token") != null;
     }
 
     @Override
